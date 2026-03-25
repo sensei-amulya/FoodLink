@@ -7,6 +7,7 @@ import api from '../api/axios';
 const DonorDashboard = () => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('All');
 
   useEffect(() => {
     const fetchDonorListings = async () => {
@@ -67,7 +68,20 @@ const DonorDashboard = () => {
 
       {/* Listings Panel */}
       <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 transition-transform duration-300 hover:-translate-y-1">
-        <h3 className="text-2xl font-extrabold text-gray-900 mb-8 border-b pb-4 border-gray-100">Live Donations</h3>
+        <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b pb-4 border-gray-100 gap-4">
+          <h3 className="text-2xl font-extrabold text-gray-900">Live Donations</h3>
+          <div className="flex flex-wrap gap-2 text-sm">
+            {['All', 'Available', 'Pending', 'Accepted', 'Picked', 'Delivered'].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilterStatus(status)}
+                className={`px-4 py-2 rounded-xl font-bold transition-all ${filterStatus === status ? 'bg-green-500 text-white shadow-md shadow-green-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
         
         {loading ? (
           <div className="text-center py-16">
@@ -91,8 +105,11 @@ const DonorDashboard = () => {
         ) : (
           <div className="grid gap-8">
             <AnimatePresence>
-              {listings.map((item) => (
-                <motion.div 
+              {(filterStatus === 'All' ? listings : listings.filter(item => item.status === filterStatus)).length === 0 ? (
+                <p className="text-gray-500 text-center py-4 font-medium">No results found for status: {filterStatus}</p>
+              ) : (
+                (filterStatus === 'All' ? listings : listings.filter(item => item.status === filterStatus)).map((item) => (
+                  <motion.div 
                   initial={{ opacity: 0, scale: 0.98 }}
                   animate={{ opacity: 1, scale: 1 }}
                   key={item._id} 
@@ -193,7 +210,7 @@ const DonorDashboard = () => {
                     )}
                   </div>
                 </motion.div>
-              ))}
+              )))}
             </AnimatePresence>
           </div>
         )}

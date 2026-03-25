@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Utensils } from 'lucide-react';
+import { LogOut, Utensils, Map, Home } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -20,9 +20,19 @@ const Navbar = () => {
             <Utensils className="h-8 w-8 text-purple-600" />
             <span className="ml-2 text-xl font-bold tracking-tight text-gray-900">FoodLink</span>
           </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm font-medium text-gray-700">
-              Welcome, {user?.name} ({user?.role})
+          <div className="flex items-center space-x-6">
+            <a onClick={() => navigate('/dashboard')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">
+              <Home size={18} className="mr-1" />
+              Dashboard
+            </a>
+            {user?.role === 'Receiver' && (
+              <a onClick={() => navigate('/discover')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">
+                <Map size={18} className="mr-1" />
+                Live Map
+              </a>
+            )}
+            <span className="text-sm font-medium text-gray-700 hidden sm:block border-l pl-6 border-gray-200">
+              Welcome, {user?.name}
             </span>
             <button
               onClick={handleLogout}

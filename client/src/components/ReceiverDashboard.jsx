@@ -9,6 +9,8 @@ import MapComponent from './MapComponent';
 const ReceiverDashboard = () => {
   const [foods, setFoods] = useState([]);
   const [myClaims, setMyClaims] = useState([]);
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [availableFilter, setAvailableFilter] = useState('All');
   const [userLocation, setUserLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,7 +48,7 @@ const ReceiverDashboard = () => {
 
   const fetchNearbyFood = async (lat, lng) => {
     try {
-      const { data } = await api.get(`/food/nearby?lat=${lat}&lng=${lng}&distance=10000`);
+      const { data } = await api.get(`/food/nearby?lat=${lat}&lng=${lng}&distance=500000`); // increased to 500km to ensure visibility during testing
       setFoods(data);
       setError(null);
     } catch (err) {
@@ -128,9 +130,22 @@ const ReceiverDashboard = () => {
 
         {/* Nearby Panel */}
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 transition-transform duration-300 hover:-translate-y-1">
-          <h2 className="text-2xl font-extrabold text-gray-900 flex items-center mb-8 border-b pb-4 border-gray-100">
-             Available Near You ({foods.length})
-          </h2>
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b pb-4 border-gray-100 gap-4">
+            <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
+               Available Near You ({foods.length})
+            </h2>
+            <div className="flex flex-wrap gap-2 text-sm">
+              {['All', 'Veg', 'Non-Veg'].map(type => (
+                <button
+                  key={type}
+                  onClick={() => setAvailableFilter(type)}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${availableFilter === type ? 'bg-green-500 text-white shadow-sm shadow-green-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {loading ? (
             <div className="text-center py-10">
@@ -150,7 +165,7 @@ const ReceiverDashboard = () => {
           ) : (
             <div className="grid gap-6">
               <AnimatePresence>
-                {foods.map(food => (
+                {(availableFilter === 'All' ? foods : foods.filter(f => f.type && f.type.toLowerCase() === availableFilter.toLowerCase().replace('-', ''))).map(food => (
                   <motion.div 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -189,14 +204,29 @@ const ReceiverDashboard = () => {
 
         {/* My Claims Panel */}
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 transition-transform duration-300 hover:-translate-y-1">
-          <h2 className="text-2xl font-extrabold text-gray-900 flex items-center mb-8 border-b pb-4 border-gray-100">
-            My Reservations
-          </h2>
+          <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b pb-4 border-gray-100 gap-4">
+            <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
+              My Reservations
+            </h2>
+            <div className="flex flex-wrap gap-2 text-sm">
+              {['All', 'Pending', 'Accepted', 'Picked', 'Delivered'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => setFilterStatus(status)}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all ${filterStatus === status ? 'bg-green-500 text-white shadow-sm shadow-green-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-6">
             {myClaims.length === 0 ? (
               <p className="text-base text-gray-500 text-center py-6 font-medium">You haven't reserved any items yet.</p>
+            ) : (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.status === filterStatus)).length === 0 ? (
+              <p className="text-base text-gray-500 text-center py-6 font-medium">No results found for status: {filterStatus}</p>
             ) : (
-              myClaims.map(claim => (
+              (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.status === filterStatus)).map(claim => (
                 <div key={claim._id} className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 hover:bg-white transition-colors">
                   <h4 className="font-bold text-lg text-gray-900 mb-3 truncate">{claim.name}</h4>
                   <div className="flex items-center justify-between mb-5">

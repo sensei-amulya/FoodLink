@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AddFood from './pages/AddFood';
+import Discover from './pages/Discover';
 
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
@@ -37,6 +38,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AddFood />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/discover" 
+            element={
+              <ProtectedRoute>
+                <Discover />
               </ProtectedRoute>
             } 
           />
