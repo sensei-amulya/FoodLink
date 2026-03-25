@@ -5,7 +5,7 @@ import Food from '../models/Food.js';
 // @access  Private (Donor only)
 export const addFood = async (req, res) => {
   try {
-    const { name, quantity, longitude, latitude, expiryTime } = req.body;
+    const { name, quantity, longitude, latitude, expiryTime, type, image } = req.body;
 
     if (req.user.role !== 'Donor' && req.user.role !== 'Admin') {
       return res.status(403).json({ message: 'Only Donors can add food' });
@@ -14,6 +14,8 @@ export const addFood = async (req, res) => {
     const food = await Food.create({
       name,
       quantity,
+      type: type || 'veg',
+      imageUrl: image,
       location: {
         type: 'Point',
         coordinates: [longitude, latitude]
@@ -33,13 +35,13 @@ export const addFood = async (req, res) => {
 // @access  Private (Receiver)
 export const getNearbyFood = async (req, res) => {
   try {
-    const { lng, lat, distance = 5000 } = req.query; // default 5km
+    const { lng, lat, distance = 5000, type } = req.query; // default 5km
 
     if (!lng || !lat) {
       return res.status(400).json({ message: 'Please provide longitude and latitude' });
     }
 
-    const foodListing = await Food.find({
+    const query = {
       status: 'Available',
       expiryTime: { $gt: new Date() }, // Only food that hasn't expired
       location: {
@@ -51,7 +53,13 @@ export const getNearbyFood = async (req, res) => {
           $maxDistance: parseInt(distance)
         }
       }
-    }).populate('donorId', 'name rating'); // sort by nearest is done by $near automatically
+    };
+
+    if (type && type !== 'all') {
+      query.type = type;
+    }
+
+    const foodListing = await Food.find(query).populate('donorId', 'name rating');
     
     // Sort logic modification (nearest first + expiry soonest first)
     // MongoDB $near already sorts by nearest. To combine, we can sort in memory.

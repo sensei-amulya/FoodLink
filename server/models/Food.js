@@ -10,6 +10,16 @@ const foodSchema = new mongoose.Schema({
     required: true,
     description: 'Number of people this food can serve'
   },
+  type: {
+    type: String,
+    enum: ['veg', 'non-veg'],
+    required: true,
+    default: 'veg'
+  },
+  imageUrl: {
+    type: String,
+    description: 'Base64 image string or URL'
+  },
   location: {
     type: {
       type: String,

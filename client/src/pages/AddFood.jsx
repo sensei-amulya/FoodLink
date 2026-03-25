@@ -169,7 +169,7 @@ const AddFood = () => {
         latitude: formData.location.lat,
         longitude: formData.location.lng,
         address: formData.location.address,
-        // image: imagePreview // Send base64 or URL if API supports it
+        image: imagePreview // Send base64 to DB
       };
 
       await api.post('/food', payload);
