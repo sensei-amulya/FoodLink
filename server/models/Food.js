@@ -28,7 +28,7 @@ const foodSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Available', 'Claimed'],
+    enum: ['Available', 'Pending', 'Accepted', 'Picked', 'Delivered'],
     default: 'Available'
   },
   donorId: {

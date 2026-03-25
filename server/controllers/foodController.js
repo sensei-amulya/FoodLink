@@ -76,19 +76,74 @@ export const claimFood = async (req, res) => {
       return res.status(404).json({ message: 'Food not found' });
     }
 
-    if (food.status === 'Claimed') {
-      return res.status(400).json({ message: 'Food is already claimed' });
+    if (food.status !== 'Available') {
+      return res.status(400).json({ message: 'Food is no longer available' });
     }
 
     if (req.user.role !== 'Receiver' && req.user.role !== 'Admin') {
       return res.status(403).json({ message: 'Only Receivers can claim food' });
     }
 
-    food.status = 'Claimed';
+    food.status = 'Pending';
     food.receiverId = req.user._id;
 
     const updatedFood = await food.save();
     res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update food status (Accept, Reject, Picked, Delivered)
+// @route   PUT /api/food/:id/status
+// @access  Private (Donor or Receiver)
+export const updateFoodStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const food = await Food.findById(req.params.id);
+
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    // Authorization: Only the specific Donor can accept/reject or advance status
+    // Only the specific Receiver can advance status to Picked/Delivered if accepted
+    const isDonor = food.donorId.toString() === req.user._id.toString();
+    const isReceiver = food.receiverId && food.receiverId.toString() === req.user._id.toString();
+
+    if (!isDonor && !isReceiver && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Not authorized to update this listing' });
+    }
+
+    // Handle rejection
+    if (status === 'Available' && isDonor) {
+      food.status = 'Available';
+      food.receiverId = null;
+    } else {
+      food.status = status;
+    }
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get receiver's claimed food
+// @route   GET /api/food/receiver
+// @access  Private (Receiver only)
+export const getReceiverListings = async (req, res) => {
+  try {
+    if (req.user.role !== 'Receiver' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only Receivers can access their claims' });
+    }
+
+    const listings = await Food.find({ receiverId: req.user._id })
+      .populate('donorId', 'name email address location rating')
+      .sort({ updatedAt: -1 });
+
+    res.json(listings);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
