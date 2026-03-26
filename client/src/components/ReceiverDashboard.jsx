@@ -50,7 +50,7 @@ const ReceiverDashboard = () => {
         (position) => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
-          setUserLocation([lat, lng]);
+          setUserLocation({ lat, lng });
           fetchNearbyFood(lat, lng);
         },
         (err) => {
