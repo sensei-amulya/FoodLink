@@ -34,6 +34,7 @@ const AddFood = () => {
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
 
   const [status, setStatus] = useState({ loading: false, type: '', message: '' });
   const [detectingLocation, setDetectingLocation] = useState(false);
@@ -164,12 +165,13 @@ const AddFood = () => {
       const payload = {
         name: formData.name,
         quantity: Number(formData.quantity),
-        type: formData.type, // Custom added based on prompt
-        expiryTime: formData.expiryTime,
+        type: formData.type,
+        expiryTime: isExpired ? new Date(Date.now() - 60000).toISOString() : formData.expiryTime,
         latitude: formData.location.lat,
         longitude: formData.location.lng,
         address: formData.location.address,
-        image: imagePreview // Send base64 to DB
+        image: imagePreview,
+        ...(isExpired && { isCompostable: true, status: 'Expired', compostStatus: 'available' })
       };
 
       await api.post('/food', payload);
@@ -321,18 +323,30 @@ const AddFood = () => {
 
                   {/* Expiry Time - Important Field */}
                   <div className="md:col-span-2">
-                    <label className="flex items-center text-sm font-semibold text-orange-600 mb-2 bg-orange-50 p-2 rounded-lg border border-orange-100 inline-flex">
-                      <Clock size={16} className="mr-2" />
-                      Expiry Date & Time (Crucial)
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="expiryTime"
-                      required
-                      value={formData.expiryTime}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-orange-50/30 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all text-gray-800"
-                    />
+                    <div className="flex items-center justify-between mb-2 p-2 rounded-lg bg-orange-50 border border-orange-100">
+                      <label className="flex items-center text-sm font-semibold text-orange-600">
+                        <Clock size={16} className="mr-2" />
+                        Expiry Date & Time (Crucial)
+                      </label>
+                      <label className="flex items-center text-sm font-semibold text-gray-700 cursor-pointer">
+                        <input type="checkbox" className="mr-2 rounded text-green-500 focus:ring-green-500 w-4 h-4" checked={isExpired} onChange={(e) => setIsExpired(e.target.checked)} />
+                        This item is already expired (for Compost)
+                      </label>
+                    </div>
+                    {!isExpired ? (
+                      <input
+                        type="datetime-local"
+                        name="expiryTime"
+                        required={!isExpired}
+                        value={formData.expiryTime}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-orange-100 bg-orange-50/30 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all text-gray-800"
+                      />
+                    ) : (
+                      <div className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-100 text-gray-500 font-medium">
+                        Item marked as already expired. It will be sent straight to compost.
+                      </div>
+                    )}
                   </div>
 
                   {/* Location */}
