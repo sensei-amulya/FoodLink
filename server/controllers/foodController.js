@@ -1,4 +1,4 @@
-import Food from '../models/Food.js';
+import Food from "../models/Food.js";
 
 // @desc    Add a new food item
 // @route   POST /api/food
@@ -7,8 +7,16 @@ export const addFood = async (req, res) => {
   try {
     const { name, quantity, longitude, latitude, expiryTime, type, image } = req.body;
 
-    if (req.user.role !== 'Donor' && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Only Donors can add food' });
+    // 🔒 validation
+    const lng = parseFloat(longitude);
+    const lat = parseFloat(latitude);
+
+    if (!name || !quantity || isNaN(lng) || isNaN(lat) || !expiryTime) {
+      return res.status(400).json({ message: "Invalid input data" });
+    }
+
+    if (req.user.role !== "Donor" && req.user.role !== "Admin") {
+      return res.status(403).json({ message: "Only Donors can add food" });
     }
 
     const isAlreadyExpired = new Date(expiryTime) < new Date();
@@ -19,8 +27,8 @@ export const addFood = async (req, res) => {
       type: type || 'veg',
       imageUrl: image,
       location: {
-        type: 'Point',
-        coordinates: [longitude, latitude]
+        type: "Point",
+        coordinates: [lng, lat],
       },
       expiryTime,
       donorId: req.user._id,
@@ -30,6 +38,17 @@ export const addFood = async (req, res) => {
         compostStatus: 'available'
       })
     });
+
+    // 🔔 safe socket emit
+    if (req.io) {
+      req.io.emit("food_alert", {
+        id: food._id,
+        name: food.name,
+        quantity: food.quantity,
+        location: food.location,
+        expiryTime: food.expiryTime,
+      });
+    }
 
     res.status(201).json(food);
   } catch (error) {
@@ -44,8 +63,12 @@ export const getNearbyFood = async (req, res) => {
   try {
     const { lng, lat, distance = 5000, type } = req.query; // default 5km
 
-    if (!lng || !lat) {
-      return res.status(400).json({ message: 'Please provide longitude and latitude' });
+    const lngNum = parseFloat(lng);
+    const latNum = parseFloat(lat);
+    const distNum = parseInt(distance);
+
+    if (isNaN(lngNum) || isNaN(latNum)) {
+      return res.status(400).json({ message: "Invalid coordinates" });
     }
 
     const query = {
@@ -54,8 +77,8 @@ export const getNearbyFood = async (req, res) => {
       location: {
         $near: {
           $geometry: {
-            type: 'Point',
-            coordinates: [parseFloat(lng), parseFloat(lat)]
+            type: "Point",
+            coordinates: [lngNum, latNum],
           },
           $maxDistance: parseInt(distance)
         }
@@ -88,26 +111,36 @@ export const claimFood = async (req, res) => {
     const food = await Food.findById(req.params.id);
 
     if (!food) {
-      return res.status(404).json({ message: 'Food not found' });
+      return res.status(404).json({ message: "Food not found" });
     }
 
     if (food.status !== 'Available') {
       return res.status(400).json({ message: 'Food is no longer available' });
     }
 
-    if (req.user.role !== 'Receiver' && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Only Receivers can claim food' });
+    if (new Date(food.expiryTime) < new Date()) {
+      return res.status(400).json({ message: "Food has expired" });
     }
 
     food.status = 'Pending';
     food.receiverId = req.user._id;
 
     const updatedFood = await food.save();
+
+    // 🔔 notify donor
+    if (req.io) {
+      req.io.to(food.donorId.toString()).emit("food_claimed", {
+        foodId: food._id,
+        receiverId: req.user._id,
+      });
+    }
+
     res.json(updatedFood);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // @desc    Update food status (Accept, Reject, Picked, Delivered)
 // @route   PUT /api/food/:id/status
