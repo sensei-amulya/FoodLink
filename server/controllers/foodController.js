@@ -323,3 +323,57 @@ export const getAllDeliveries = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Edit a food item
+// @route   PUT /api/food/:id
+// @access  Private (Donor only)
+export const editFood = async (req, res) => {
+  try {
+    const { name, quantity, type, expiryTime } = req.body;
+    const food = await Food.findById(req.params.id);
+
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    if (food.donorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the original donor can edit this food listing' });
+    }
+
+    if (food.status !== 'Available') {
+      return res.status(400).json({ message: 'Can only edit food listings that are currently Available' });
+    }
+
+    food.name = name || food.name;
+    food.quantity = quantity || food.quantity;
+    food.type = type || food.type;
+    food.expiryTime = expiryTime || food.expiryTime;
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a food item
+// @route   DELETE /api/food/:id
+// @access  Private (Donor only)
+export const deleteFood = async (req, res) => {
+  try {
+    const food = await Food.findById(req.params.id);
+
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    if (food.donorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the original donor can delete this food listing' });
+    }
+
+    await Food.deleteOne({ _id: req.params.id });
+    res.json({ message: 'Food removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
