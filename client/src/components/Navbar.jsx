@@ -31,10 +31,12 @@ const Navbar = () => {
                 Live Map
               </a>
             )}
-            <a onClick={() => navigate('/delivery')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">
-               <Truck size={18} className="mr-1" />
-               Deliveries
-            </a>
+            {user?.role === 'Volunteer' && (
+              <a onClick={() => navigate('/delivery')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">
+                 <Truck size={18} className="mr-1" />
+                 Deliveries
+              </a>
+            )}
             <span className="text-sm font-medium text-gray-700 hidden sm:block border-l pl-6 border-gray-200">
               Welcome, {user?.name}
             </span>

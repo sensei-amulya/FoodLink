@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Plus, MapPin, Clock, Info, CheckCircle, Mail, User, Users, Edit, Trash2, XCircle } from 'lucide-react';
+import { Package, Plus, MapPin, Clock, Info, CheckCircle, Mail, User, Users, Edit, Trash2, XCircle, Leaf } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 
@@ -166,6 +166,13 @@ const DonorDashboard = () => {
                             <button onClick={() => handleEditClick(item)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                               <Edit size={18} />
                             </button>
+                            <button onClick={async () => {
+                              if (window.confirm('Are you sure you want to mark this as expired and send to compost?')) {
+                                try { await api.patch(`/food/mark-expired/${item._id}`); window.location.reload(); } catch (e) { alert('Failed to expire'); }
+                              }
+                            }} className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Expire for Compost">
+                              <Leaf size={18} />
+                            </button>
                             <button onClick={() => handleDelete(item._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                               <Trash2 size={18} />
                             </button>
@@ -209,16 +216,16 @@ const DonorDashboard = () => {
                         </p>
                       </div>
 
-                      {item.status !== 'Available' && item.receiverId && (
+                      {item.status !== 'Available' && (item.receiverId || item.farmerId) && (
                         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
                           <h5 className="font-extrabold text-gray-900 flex items-center mb-3">
                             <CheckCircle size={18} className="mr-2 text-green-500" /> Requested By
                           </h5>
-                          <p className="text-gray-800 mb-2 font-bold text-lg">{item.receiverId.name}</p>
+                          <p className="text-gray-800 mb-2 font-bold text-lg">{(item.receiverId || item.farmerId).name}</p>
                           <p className="text-gray-500 flex items-center mb-5 font-medium">
                             <Mail size={16} className="mr-2 text-gray-400" />
-                            <a href={`mailto:${item.receiverId.email}`} className="text-green-500 hover:text-green-600 hover:underline">
-                              {item.receiverId.email}
+                            <a href={`mailto:${(item.receiverId || item.farmerId).email}`} className="text-green-500 hover:text-green-600 hover:underline">
+                              {(item.receiverId || item.farmerId).email}
                             </a>
                           </p>
 
@@ -242,19 +249,19 @@ const DonorDashboard = () => {
                               <button onClick={() => handleStatusUpdate(item._id, 'Accepted')} className="w-2/3 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold transition-all shadow-md shadow-green-500/20 active:scale-95">Accept Request</button>
                             </div>
                           )}
-                          {item.status === 'Accepted' && item.deliveryStatus === 'accepted' && (
+                          {(item.status === 'Accepted' || item.status === 'Expired') && item.deliveryStatus === 'accepted' && (
                             <div className="pt-4 border-t border-gray-100">
                               <button onClick={async () => { await api.patch(`/food/mark-picked/${item._id}`); window.location.reload(); }} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold transition-all shadow-md shadow-blue-500/20 flex justify-center items-center active:scale-95">
                                 Mark as Picked Up <CheckCircle size={18} className="ml-2" />
                               </button>
                             </div>
                           )}
-                          {item.status === 'Accepted' && (item.deliveryStatus === 'picked') && (
+                          {(item.status === 'Accepted' || item.status === 'Expired') && (item.deliveryStatus === 'picked') && (
                             <div className="pt-4 border-t border-gray-100 text-center text-sm font-bold text-gray-500 uppercase tracking-widest">
                               En route to Receiver
                             </div>
                           )}
-                          {item.status === 'Accepted' && item.deliveryStatus === 'delivered' && (
+                          {(item.status === 'Accepted' || item.status === 'Expired') && item.deliveryStatus === 'delivered' && (
                             <div className="pt-4 border-t border-gray-100">
                               <div className="mb-5 bg-green-50 p-4 rounded-xl border border-green-200">
                                 <h6 className="text-xs font-extrabold text-green-800 uppercase mb-3 flex items-center"><CheckCircle size={16} className="mr-2"/> Delivery Proof Uploaded</h6>

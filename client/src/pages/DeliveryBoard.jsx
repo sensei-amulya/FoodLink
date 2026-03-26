@@ -150,10 +150,10 @@ const DeliveryBoard = () => {
                       <span className="text-xs text-gray-500 hover:text-blue-500 block uppercase tracking-wider">📍 View Pickup Location</span>
                     </div>
                   </div>
-                  <div className="flex items-center cursor-pointer group-hover:text-orange-500" onClick={() => openGoogleMaps(task.receiverId?.location?.coordinates)}>
+                  <div className="flex items-center cursor-pointer group-hover:text-orange-500" onClick={() => openGoogleMaps((task.receiverId || task.farmerId)?.location?.coordinates)}>
                     <Package size={20} className="text-orange-500 mr-3 flex-shrink-0" />
                     <div>
-                      <span className="truncate text-base block">Receiver: <strong className="text-gray-900">{task.receiverId?.name}</strong></span>
+                      <span className="truncate text-base block">{task.farmerId ? 'Farmer' : 'Receiver'}: <strong className="text-gray-900">{(task.receiverId || task.farmerId)?.name}</strong></span>
                       <span className="text-xs text-gray-500 hover:text-orange-500 block uppercase tracking-wider">📍 View Drop Location</span>
                     </div>
                   </div>
@@ -202,10 +202,10 @@ const DeliveryBoard = () => {
                     </button>
                   </div>
                   
-                  <div className="bg-orange-50/50 p-5 rounded-2xl border border-orange-100 flex justify-between items-center group cursor-pointer hover:bg-orange-50 transition-colors" onClick={() => openGoogleMaps(task.receiverId?.location?.coordinates)}>
+                  <div className="bg-orange-50/50 p-5 rounded-2xl border border-orange-100 flex justify-between items-center group cursor-pointer hover:bg-orange-50 transition-colors" onClick={() => openGoogleMaps((task.receiverId || task.farmerId)?.location?.coordinates)}>
                     <div>
                       <span className="text-xs font-extrabold text-orange-500 uppercase tracking-widest block mb-1.5 flex items-center"><Package size={14} className="mr-1"/> Drop Location</span>
-                      <strong className="text-gray-900 text-xl block">{task.receiverId?.name}</strong>
+                      <strong className="text-gray-900 text-xl block">{(task.receiverId || task.farmerId)?.name}</strong>
                     </div>
                     <button className="bg-white text-orange-600 p-4 rounded-2xl border border-orange-200 shadow-sm group-hover:scale-105 transition-transform flex flex-col items-center">
                        <Navigation size={22} className="mb-1" /><span className="text-[10px] font-bold uppercase">Navigate</span>

@@ -11,6 +11,8 @@ export const addFood = async (req, res) => {
       return res.status(403).json({ message: 'Only Donors can add food' });
     }
 
+    const isAlreadyExpired = new Date(expiryTime) < new Date();
+
     const food = await Food.create({
       name,
       quantity,
@@ -21,7 +23,12 @@ export const addFood = async (req, res) => {
         coordinates: [longitude, latitude]
       },
       expiryTime,
-      donorId: req.user._id
+      donorId: req.user._id,
+      ...(isAlreadyExpired && {
+        isCompostable: true,
+        status: 'Expired',
+        compostStatus: 'available'
+      })
     });
 
     res.status(201).json(food);
@@ -127,6 +134,10 @@ export const updateFoodStatus = async (req, res) => {
     if (status === 'Available' && isDonor) {
       food.status = 'Available';
       food.receiverId = null;
+    } else if (status === 'Expired' && isDonor) {
+      food.status = 'Expired';
+      food.farmerId = null;
+      food.compostStatus = 'available';
     } else {
       food.status = status;
     }
@@ -168,6 +179,7 @@ export const getDonorListings = async (req, res) => {
 
     const listings = await Food.find({ donorId: req.user._id })
       .populate('receiverId', 'name email')
+      .populate('farmerId', 'name email')
       .sort({ createdAt: -1 });
 
     res.json(listings);
@@ -206,6 +218,7 @@ export const getMyDeliveries = async (req, res) => {
     const deliveries = await Food.find({ volunteerId: req.user._id })
       .populate('donorId', 'name address location')
       .populate('receiverId', 'name address location')
+      .populate('farmerId', 'name address location')
       .sort({ createdAt: -1 });
     res.json(deliveries);
   } catch (error) {
@@ -290,7 +303,11 @@ export const getAvailableDeliveries = async (req, res) => {
     }
 
     const deliveries = await Food.find({
-      receiverId: { $exists: true, $ne: null }, // ensures food is claimed
+      status: 'Accepted',
+      $or: [
+        { receiverId: { $exists: true, $ne: null } },
+        { farmerId: { $exists: true, $ne: null }, compostStatus: 'claimed' }
+      ],
       $or: [
         { deliveryStatus: 'pending' },
         { deliveryStatus: { $exists: false } },
@@ -299,6 +316,7 @@ export const getAvailableDeliveries = async (req, res) => {
     })
       .populate('donorId', 'name location')
       .populate('receiverId', 'name location')
+      .populate('farmerId', 'name location')
       .sort({ createdAt: -1 });
 
     console.log("Available deliveries:", deliveries.length);
@@ -316,6 +334,7 @@ export const getAllDeliveries = async (req, res) => {
     })
       .populate('donorId', 'name address location')
       .populate('receiverId', 'name address location')
+      .populate('farmerId', 'name address location')
       .populate('volunteerId', 'name');
 
     res.json(deliveries);
@@ -373,6 +392,140 @@ export const deleteFood = async (req, res) => {
 
     await Food.deleteOne({ _id: req.params.id });
     res.json({ message: 'Food removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get compost-eligible food
+// @route   GET /api/food/compost-available
+// @access  Private (Farmer only)
+export const getCompostAvailable = async (req, res) => {
+  try {
+    if (req.user.role !== 'Farmer' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only Farmers can access compost listings' });
+    }
+
+    const { lng, lat, distance = 50000 } = req.query; // default 50km for farmers
+
+    let query = {
+      isCompostable: true,
+      compostStatus: 'available'
+    };
+
+    if (lng && lat) {
+      query.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: parseInt(distance)
+        }
+      };
+    }
+
+    const compostListings = await Food.find(query).populate('donorId', 'name address location rating email');
+    res.json(compostListings);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Claim food for compost
+// @route   POST /api/food/claim-compost/:id
+// @access  Private (Farmer only)
+export const claimCompost = async (req, res) => {
+  try {
+    if (req.user.role !== 'Farmer' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only Farmers can claim compost' });
+    }
+
+    const food = await Food.findById(req.params.id);
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    if (!food.isCompostable || food.compostStatus !== 'available') {
+      return res.status(400).json({ message: 'Food is not available for compost' });
+    }
+
+    food.compostStatus = 'claimed';
+    food.farmerId = req.user._id;
+    food.status = 'Pending';
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark compost as collected
+// @route   PATCH /api/food/mark-collected/:id
+// @access  Private (Farmer only)
+export const markCompostCollected = async (req, res) => {
+  try {
+    if (req.user.role !== 'Farmer' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only Farmers can mark compost as collected' });
+    }
+
+    const food = await Food.findById(req.params.id);
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    if (food.farmerId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the claiming farmer can mark this as collected' });
+    }
+
+    food.compostStatus = 'collected';
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get Farmer's own compost claims
+// @route   GET /api/food/my-compost
+// @access  Private (Farmer only)
+export const getMyCompostClaims = async (req, res) => {
+  try {
+    if (req.user.role !== 'Farmer' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only Farmers can access their claims' });
+    }
+
+    const claims = await Food.find({ farmerId: req.user._id })
+      .populate('donorId', 'name address location email')
+      .sort({ updatedAt: -1 });
+    res.json(claims);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark food as expired manually for compost
+// @route   PATCH /api/food/mark-expired/:id
+// @access  Private (Donor only)
+export const markExpiredForCompost = async (req, res) => {
+  try {
+    const food = await Food.findById(req.params.id);
+    if (!food) return res.status(404).json({ message: 'Food not found' });
+    if (food.donorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the original donor can expire this food' });
+    }
+    if (food.status !== 'Available') {
+      return res.status(400).json({ message: 'Only Available food can be manually expired' });
+    }
+
+    food.status = 'Expired';
+    food.isCompostable = true;
+    food.compostStatus = 'available';
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

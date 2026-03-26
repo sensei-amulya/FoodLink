@@ -96,6 +96,7 @@ const Register = () => {
                 <option value="Receiver">Receiver (Looking for food)</option>
                 <option value="Donor">Donor (Sharing surplus food)</option>
                 <option value="Volunteer">Volunteer (Delivering surplus food)</option>
+                <option value="Farmer">Farmer (Collecting compost from expired food)</option>
               </select>
             </div>
           </div>

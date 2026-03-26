@@ -38,7 +38,7 @@ const foodSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Available', 'Pending', 'Accepted', 'Picked', 'Delivered'],
+    enum: ['Available', 'Pending', 'Accepted', 'Picked', 'Delivered', 'Expired'],
     default: 'Available'
   },
   donorId: {
@@ -74,6 +74,19 @@ const foodSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'accepted', 'picked', 'delivered', 'completed'],
     default: 'pending'
+  },
+  isCompostable: {
+    type: Boolean,
+    default: false
+  },
+  compostStatus: {
+    type: String,
+    enum: ['available', 'claimed', 'collected'],
+    default: 'available'
+  },
+  farmerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, { timestamps: true });
 
