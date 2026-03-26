@@ -14,7 +14,7 @@ const ReceiverDashboard = () => {
 
   // Setup Socket.io
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io('http://localhost:5001');
     
     socket.on('food_alert', (foodData) => {
       // Add notification
