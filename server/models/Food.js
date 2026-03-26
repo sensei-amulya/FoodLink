@@ -10,6 +10,16 @@ const foodSchema = new mongoose.Schema({
     required: true,
     description: 'Number of people this food can serve'
   },
+  type: {
+    type: String,
+    enum: ['veg', 'non-veg'],
+    required: true,
+    default: 'veg'
+  },
+  imageUrl: {
+    type: String,
+    description: 'Base64 image string or URL'
+  },
   location: {
     type: {
       type: String,
@@ -28,7 +38,7 @@ const foodSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Available', 'Claimed'],
+    enum: ['Available', 'Pending', 'Accepted', 'Picked', 'Delivered', 'Expired'],
     default: 'Available'
   },
   donorId: {
@@ -39,11 +49,51 @@ const foodSchema = new mongoose.Schema({
   receiverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
+  },
+  volunteerName: {
+    type: String
+  },
+  volunteerPhone: {
+    type: String
+  },
+  volunteerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  pickupConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  deliveryProofImage: {
+    type: String
+  },
+  completedAt: {
+    type: Date
+  },
+  deliveryStatus: {
+    type: String,
+    enum: ['pending', 'accepted', 'picked', 'delivered', 'completed'],
+    default: 'pending'
+  },
+  isCompostable: {
+    type: Boolean,
+    default: false
+  },
+  compostStatus: {
+    type: String,
+    enum: ['available', 'claimed', 'collected'],
+    default: 'available'
+  },
+  farmerId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   }
 }, { timestamps: true });
 
 // Create geospatial index
 foodSchema.index({ location: '2dsphere' });
 
-const Food = mongoose.model('Food', foodSchema);
+// Create model safely to prevent re-compilation errors in hot-reloading (nodemon)
+const Food = mongoose.models.Food || mongoose.model('Food', foodSchema);
+
 export default Food;

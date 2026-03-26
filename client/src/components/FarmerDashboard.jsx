@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, Users, ArrowRight, Bell, CheckCircle, Info } from 'lucide-react';
+import { MapPin, Clock, Users, ArrowRight, Bell, CheckCircle, Info, Sprout, Leaf, Package } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import MapComponent from './MapComponent';
 
-const ReceiverDashboard = () => {
+const FarmerDashboard = () => {
   const [foods, setFoods] = useState([]);
   const [myClaims, setMyClaims] = useState([]);
   const [filterStatus, setFilterStatus] = useState('All');
@@ -16,30 +16,30 @@ const ReceiverDashboard = () => {
   const [error, setError] = useState(null);
   const [notifications, setNotifications] = useState([]);
 
-  // Confirmation Modal State
   const [claimingFood, setClaimingFood] = useState(null);
 
   const fetchMyClaims = async () => {
     try {
-      const { data } = await api.get('/food/receiver');
+      const { data } = await api.get('/food/my-compost');
       setMyClaims(data);
     } catch (err) {
       console.error('Failed to fetch claims', err);
     }
   };
 
-  // Setup Socket.io
   useEffect(() => {
     const socket = io('http://localhost:5000');
 
     socket.on('food_alert', (foodData) => {
-      setNotifications(prev => [
-        { id: Date.now(), text: `New food added locally: ${foodData.name}` },
-        ...prev
-      ]);
+      if (foodData.isCompostable) {
+        setNotifications(prev => [
+          { id: Date.now(), text: `New compost available locally: ${foodData.name}` },
+          ...prev
+        ]);
 
-      if (userLocation) {
-        fetchNearbyFood(userLocation.lat, userLocation.lng);
+        if (userLocation) {
+          fetchNearbyFood(userLocation.lat, userLocation.lng);
+        }
       }
     });
 
@@ -48,11 +48,12 @@ const ReceiverDashboard = () => {
 
   const fetchNearbyFood = async (lat, lng) => {
     try {
-      const { data } = await api.get(`/food/nearby?lat=${lat}&lng=${lng}&distance=500000`); // increased to 500km to ensure visibility during testing
+      // Large distance to guarantee results in testing
+      const { data } = await api.get(`/food/compost-available?lat=${lat}&lng=${lng}&distance=500000`);
       setFoods(data);
       setError(null);
     } catch (err) {
-      setError('Failed to fetch nearby food. ' + (err.response?.data?.message || ''));
+      setError('Failed to fetch nearby compost. ' + (err.response?.data?.message || ''));
     } finally {
       setLoading(false);
     }
@@ -69,7 +70,7 @@ const ReceiverDashboard = () => {
           fetchNearbyFood(lat, lng);
         },
         (err) => {
-          setError('Location access denied. Please enable location to find nearby food.');
+          setError('Location access denied. Please enable location to find nearby compostable food.');
           setLoading(false);
         }
       );
@@ -82,12 +83,12 @@ const ReceiverDashboard = () => {
   const confirmClaim = async () => {
     if (!claimingFood) return;
     try {
-      await api.put(`/food/${claimingFood._id}/claim`);
+      await api.post(`/food/claim-compost/${claimingFood._id}`);
       setFoods(foods.filter(f => f._id !== claimingFood._id));
       await fetchMyClaims();
       setClaimingFood(null);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to claim food');
+      alert(err.response?.data?.message || 'Failed to claim compost');
       setClaimingFood(null);
     }
   };
@@ -96,16 +97,24 @@ const ReceiverDashboard = () => {
     setClaimingFood(food);
   };
 
+  const handleMarkCollected = async (id) => {
+    try {
+      await api.patch(`/food/mark-collected/${id}`);
+      fetchMyClaims();
+    } catch (error) {
+      console.error('Failed to mark collected', error);
+      alert('Failed to mark collected. ' + (error.response?.data?.message || ''));
+    }
+  };
+
   const removeNotification = (id) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
 
-  // Status badge config aligned with AddFood colors
   const statusColors = {
-    'Pending': 'bg-orange-100 text-orange-800 border-orange-200',
-    'Accepted': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Picked': 'bg-green-100 text-green-800 border-green-200',
-    'Delivered': 'bg-gray-100 text-gray-800 border-gray-200'
+    'available': 'bg-green-100 text-green-700 border-green-200',
+    'claimed': 'bg-blue-100 text-blue-800 border-blue-200',
+    'collected': 'bg-gray-100 text-gray-800 border-gray-200'
   };
 
   return (
@@ -117,7 +126,7 @@ const ReceiverDashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
               <MapPin className="mr-3 text-green-500 w-7 h-7" />
-              Live Discovery Map
+              Live Compost Map
             </h2>
           </div>
           <div className="rounded-2xl overflow-hidden border border-gray-100">
@@ -132,7 +141,7 @@ const ReceiverDashboard = () => {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 transition-transform duration-300 hover:-translate-y-1">
           <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b pb-4 border-gray-100 gap-4">
             <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
-              Available Near You ({foods.length})
+              Compost Near You ({foods.length})
             </h2>
             <div className="flex flex-wrap gap-2 text-sm">
               {['All', 'Veg', 'Non-Veg'].map(type => (
@@ -150,17 +159,17 @@ const ReceiverDashboard = () => {
           {loading ? (
             <div className="text-center py-10">
               <div className="w-10 h-10 border-4 border-green-200 border-t-green-500 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-500 font-medium">Scanning your coordinates...</p>
+              <p className="text-gray-500 font-medium">Scanning for agricultural materials...</p>
             </div>
           ) : error ? (
             <div className="text-red-500 bg-red-50 p-6 rounded-2xl border border-red-100 max-w-lg mx-auto text-center font-medium">{error}</div>
           ) : foods.length === 0 ? (
             <div className="text-center py-16 px-4 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-500 mx-auto mb-4 shadow-sm border border-green-200">
-                <MapPin size={32} />
+                <Leaf size={32} />
               </div>
-              <div className="text-gray-600 mb-2 font-bold text-lg">No surplus food in your vicinity</div>
-              <p className="text-sm text-gray-500 max-w-sm mx-auto">We're constantly updating our map. We'll alert you right here as soon as a donor posts locally.</p>
+              <div className="text-gray-600 mb-2 font-bold text-lg">No compost materials found</div>
+              <p className="text-sm text-gray-500 max-w-sm mx-auto">We'll alert you right here as soon as an expired or unusable listing is marked for compost locally.</p>
             </div>
           ) : (
             <div className="grid gap-6">
@@ -177,9 +186,9 @@ const ReceiverDashboard = () => {
                       <div className="mb-4 md:mb-0">
                         <h3 className="font-extrabold text-xl text-gray-900 mb-2 group-hover:text-green-600 transition-colors">{food.name}</h3>
                         <div className="flex items-center text-sm font-medium text-gray-600 mt-2 space-x-5">
-                          <span className="flex items-center"><Users size={16} className="mr-2 text-orange-500" /> Provides for {food.quantity}</span>
-                          <span className="flex items-center text-red-500 bg-red-50 px-3 py-1 rounded-lg border border-red-100">
-                            <Clock size={16} className="mr-2" /> Expires {formatDistanceToNow(new Date(food.expiryTime), { addSuffix: true })}
+                          <span className="flex items-center"><Package size={16} className="mr-2 text-orange-500" /> Quantity: {food.quantity}</span>
+                          <span className="flex items-center text-gray-500 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
+                            <Clock size={16} className="mr-2" /> Expired {formatDistanceToNow(new Date(food.expiryTime), { addSuffix: true })}
                           </span>
                         </div>
                         <div className="mt-4 text-sm text-gray-500 flex items-center">
@@ -192,7 +201,7 @@ const ReceiverDashboard = () => {
                         onClick={() => handleClaimClick(food)}
                         className="bg-green-100 text-green-700 hover:bg-green-500 hover:text-white px-6 py-3 rounded-xl font-bold transition-all shadow-sm hover:shadow-green-500/30 flex items-center w-full md:w-auto justify-center"
                       >
-                        Reserve <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                        Claim Compost <Sprout size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
                       </button>
                     </div>
                   </motion.div>
@@ -206,39 +215,39 @@ const ReceiverDashboard = () => {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 transition-transform duration-300 hover:-translate-y-1">
           <div className="flex flex-col lg:flex-row justify-between lg:items-center mb-8 border-b pb-4 border-gray-100 gap-4">
             <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
-              My Reservations
+              My Active Claims
             </h2>
             <div className="flex flex-wrap gap-2 text-sm">
-              {['All', 'Pending', 'Accepted', 'Picked', 'Delivered'].map(status => (
+              {['All', 'claimed', 'collected'].map(status => (
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
                   className={`px-3 py-1.5 rounded-lg font-bold transition-all ${filterStatus === status ? 'bg-green-500 text-white shadow-sm shadow-green-500/20' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                 >
-                  {status}
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
                 </button>
               ))}
             </div>
           </div>
           <div className="space-y-6">
             {myClaims.length === 0 ? (
-              <p className="text-base text-gray-500 text-center py-6 font-medium">You haven't reserved any items yet.</p>
-            ) : (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.status === filterStatus)).length === 0 ? (
+              <p className="text-base text-gray-500 text-center py-6 font-medium">You haven't claimed any compost materials yet.</p>
+            ) : (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.compostStatus === filterStatus)).length === 0 ? (
               <p className="text-base text-gray-500 text-center py-6 font-medium">No results found for status: {filterStatus}</p>
             ) : (
-              (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.status === filterStatus)).map(claim => (
+              (filterStatus === 'All' ? myClaims : myClaims.filter(c => c.compostStatus === filterStatus)).map(claim => (
                 <div key={claim._id} className="border border-gray-200 rounded-2xl p-6 bg-gray-50/50 hover:bg-white transition-colors">
                   <h4 className="font-bold text-lg text-gray-900 mb-3 truncate">{claim.name}</h4>
                   <div className="flex items-center justify-between mb-5">
-                    <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${statusColors[claim.status] || 'bg-gray-100 border-gray-200 text-gray-800 border'}`}>
-                      {claim.status}
+                    <span className={`px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${statusColors[claim.compostStatus] || 'bg-gray-100 border-gray-200 text-gray-800 border'}`}>
+                      {claim.compostStatus.charAt(0).toUpperCase() + claim.compostStatus.slice(1)}
                     </span>
                     <span className="text-gray-500 text-sm font-medium">
                       Donor: <span className="text-gray-800">{claim.donorId?.name || 'Unknown'}</span>
                     </span>
                   </div>
 
-                  {claim.deliveryStatus && claim.deliveryStatus !== 'pending' && (
+                  {claim.deliveryStatus && claim.deliveryStatus !== 'pending' && claim.compostStatus !== 'collected' && (
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 mb-5 shadow-sm">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -253,20 +262,39 @@ const ReceiverDashboard = () => {
                     </div>
                   )}
 
-                  {/* Premium Timeline Progress UI */}
-                  <div className="pt-4 border-t border-gray-200/80">
-                    <div className="flex justify-between items-center text-[10px] md:text-xs font-bold tracking-wide uppercase text-gray-400">
-                      <span className={claim.status !== 'Available' ? 'text-orange-600' : ''}>Requested</span>
-                      <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-orange-400 transition-all duration-700 ${['accepted', 'picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
-                      <span className={['accepted', 'picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-blue-600' : ''}>Assigned</span>
-                      <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-blue-500 transition-all duration-700 ${['picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
-                      <span className={['picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-indigo-600' : ''}>Picked</span>
-                      <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-indigo-500 transition-all duration-700 ${['delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
-                      <span className={['delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-green-600' : ''}>Delivered</span>
-                      <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-green-500 transition-all duration-700 ${claim.deliveryStatus === 'completed' ? 'w-full' : 'w-0'}`}></div></span>
-                      <span className={claim.deliveryStatus === 'completed' ? 'text-gray-800' : ''}>Completed</span>
+                  {/* Compost Actions */}
+                  {claim.compostStatus === 'claimed' && claim.deliveryStatus === 'completed' && (
+                    <div className="pt-4 border-t border-gray-200/80">
+                      <button onClick={() => handleMarkCollected(claim._id)} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md transition-all active:scale-95 flex justify-center items-center">
+                        <CheckCircle size={18} className="mr-2" /> Mark as Collected
+                      </button>
                     </div>
-                  </div>
+                  )}
+                  {claim.compostStatus === 'claimed' && (!claim.deliveryStatus || claim.deliveryStatus === 'pending') && (
+                     <div className="pt-4 border-t border-gray-200/80">
+                       <button onClick={() => handleMarkCollected(claim._id)} className="w-full bg-blue-100 text-blue-800 hover:bg-blue-200 font-bold py-3 rounded-xl shadow-sm transition-all active:scale-95 flex justify-center items-center">
+                         <CheckCircle size={18} className="mr-2" /> Mark Collected Manually
+                       </button>
+                       <p className="text-center text-xs text-gray-400 mt-2 font-medium">Use this if you picked it up yourself before a volunteer was assigned.</p>
+                     </div>
+                  )}
+
+                  {/* Timeline Logic Matches Receiver */}
+                  {['accepted', 'picked', 'delivered', 'completed'].includes(claim.deliveryStatus) && (
+                    <div className="pt-4 mt-4 border-t border-gray-200/80">
+                      <div className="flex justify-between items-center text-[10px] md:text-xs font-bold tracking-wide uppercase text-gray-400">
+                        <span className={claim.status !== 'Available' ? 'text-orange-600' : ''}>Requested</span>
+                        <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-orange-400 transition-all duration-700 ${['accepted', 'picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
+                        <span className={['accepted', 'picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-blue-600' : ''}>Assigned</span>
+                        <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-blue-500 transition-all duration-700 ${['picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
+                        <span className={['picked', 'delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-indigo-600' : ''}>Picked</span>
+                        <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-indigo-500 transition-all duration-700 ${['delivered', 'completed'].includes(claim.deliveryStatus) ? 'w-full' : 'w-0'}`}></div></span>
+                        <span className={['delivered', 'completed'].includes(claim.deliveryStatus) ? 'text-green-600' : ''}>Delivered</span>
+                        <span className="flex-1 mx-1 md:mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full bg-green-500 transition-all duration-700 ${claim.deliveryStatus === 'completed' ? 'w-full' : 'w-0'}`}></div></span>
+                        <span className={claim.deliveryStatus === 'completed' ? 'text-gray-800' : ''}>Completed</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -326,20 +354,20 @@ const ReceiverDashboard = () => {
               className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-8 border border-white/20"
             >
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center text-green-500 mb-6 mx-auto shadow-sm border border-green-200">
-                <CheckCircle size={32} />
+                <Sprout size={32} />
               </div>
 
-              <h3 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Confirm Reservation</h3>
+              <h3 className="text-2xl font-extrabold text-gray-900 mb-2 text-center">Confirm Compost Claim</h3>
               <p className="text-gray-600 mb-6 text-center">
-                You are about to lock in: <br /><strong className="text-gray-900 text-lg">{claimingFood.name}</strong>
+                You are claiming: <br /><strong className="text-gray-900 text-lg">{claimingFood.name}</strong>
               </p>
 
-              <div className="bg-orange-50 border border-orange-100 p-5 rounded-2xl mb-8 text-sm text-orange-800">
-                <p className="font-bold mb-2 flex items-center"><Info size={16} className="mr-2" /> By reserving this, you agree to:</p>
+              <div className="bg-green-50 border border-green-100 p-5 rounded-2xl mb-8 text-sm text-green-800">
+                <p className="font-bold mb-2 flex items-center"><Info size={16} className="mr-2" /> Next steps:</p>
                 <ul className="list-disc pl-7 space-y-1.5 font-medium">
-                  <li>Pick it up promptly once the donor accepts.</li>
-                  <li>Ensure it is consumed before expiry.</li>
-                  <li>Notify the donor immediately of any delays.</li>
+                  <li>Wait for a volunteer to be assigned for delivery.</li>
+                  <li>Or manually mark it collected if you pick it up.</li>
+                  <li>Incorporate it into your sustainable farming!</li>
                 </ul>
               </div>
 
@@ -367,4 +395,4 @@ const ReceiverDashboard = () => {
   );
 };
 
-export default ReceiverDashboard;
+export default FarmerDashboard;

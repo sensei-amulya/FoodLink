@@ -10,7 +10,7 @@ const Register = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('Receiver');
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -39,10 +39,10 @@ const Register = () => {
             Join FoodLink to share or receive surplus food.
           </p>
         </div>
-        
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-100">{error}</div>}
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Full Name</label>
@@ -95,6 +95,8 @@ const Register = () => {
               >
                 <option value="Receiver">Receiver (Looking for food)</option>
                 <option value="Donor">Donor (Sharing surplus food)</option>
+                <option value="Volunteer">Volunteer (Delivering surplus food)</option>
+                <option value="Farmer">Farmer (Collecting compost from expired food)</option>
               </select>
             </div>
           </div>
@@ -108,7 +110,7 @@ const Register = () => {
             </button>
           </div>
         </form>
-        
+
         <div className="text-center text-sm text-gray-600">
           Already have an account?{' '}
           <Link to="/login" className="font-medium text-purple-600 hover:text-purple-500">
