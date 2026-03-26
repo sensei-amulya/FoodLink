@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Plus, MapPin, Clock, Info, CheckCircle, Mail, User, Users } from 'lucide-react';
+import { Package, Plus, MapPin, Clock, Info, CheckCircle, Mail, User, Users, Edit, Trash2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 
@@ -8,6 +8,8 @@ const DonorDashboard = () => {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
+  const [editingFood, setEditingFood] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: '', quantity: 1, type: 'veg', expiryTime: '' });
 
   useEffect(() => {
     const fetchDonorListings = async () => {
@@ -34,6 +36,40 @@ const DonorDashboard = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this donation?')) {
+      try {
+        await api.delete(`/food/${id}`);
+        setListings(listings.filter(item => item._id !== id));
+      } catch (error) {
+        console.error('Failed to delete food', error);
+        alert('Failed to delete food. ' + (error.response?.data?.message || ''));
+      }
+    }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingFood(item._id);
+    setEditFormData({
+      name: item.name,
+      quantity: item.quantity,
+      type: item.type,
+      expiryTime: item.expiryTime ? new Date(item.expiryTime).toISOString().slice(0, 16) : ''
+    });
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await api.put(`/food/${editingFood}`, editFormData);
+      setListings(listings.map(item => item._id === editingFood ? { ...item, ...data } : item));
+      setEditingFood(null);
+    } catch (error) {
+      console.error('Failed to update food', error);
+      alert('Failed to update food. ' + (error.response?.data?.message || ''));
+    }
+  };
+
   const statusColors = {
     'Available': 'bg-green-100 text-green-700 border-green-200 shadow-sm',
     'Pending': 'bg-orange-100 text-orange-800 border-orange-200 shadow-sm',
@@ -41,6 +77,7 @@ const DonorDashboard = () => {
     'Picked': 'bg-green-100 text-green-800 border-green-200 shadow-sm',
     'Delivered': 'bg-gray-100 text-gray-600 border-gray-200 shadow-none'
   };
+
 
   return (
     <div className="space-y-8 text-gray-800 font-sans max-w-6xl mx-auto">
@@ -123,7 +160,17 @@ const DonorDashboard = () => {
                           Posted on {new Date(item.createdAt).toLocaleDateString()}
                         </p>
                       </div>
-                      <div>
+                      <div className="flex items-center gap-4">
+                        {item.status === 'Available' && (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleEditClick(item)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                              <Edit size={18} />
+                            </button>
+                            <button onClick={() => handleDelete(item._id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        )}
                         <span className={`px-4 py-2 rounded-xl text-sm font-bold inline-flex items-center ${statusColors[item.status] || 'bg-gray-100 text-gray-800 border-gray-200'}`}>
                           {item.status === 'Available' ? <Info size={16} className="mr-2" /> : <CheckCircle size={16} className="mr-2" />}
                           {item.status}
@@ -239,6 +286,48 @@ const DonorDashboard = () => {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {editingFood && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90vh]">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-extrabold text-gray-900">Edit Donation</h3>
+                <button onClick={() => setEditingFood(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <XCircle size={24} />
+                </button>
+              </div>
+              <form onSubmit={submitEdit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Title</label>
+                  <input type="text" value={editFormData.name} onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} required className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Quantity (people)</label>
+                  <input type="number" min="1" value={editFormData.quantity} onChange={(e) => setEditFormData({...editFormData, quantity: e.target.value})} required className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Type</label>
+                  <select value={editFormData.type} onChange={(e) => setEditFormData({...editFormData, type: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all">
+                    <option value="veg">Veg</option>
+                    <option value="non-veg">Non-Veg</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Expiry Time</label>
+                  <input type="datetime-local" value={editFormData.expiryTime} onChange={(e) => setEditFormData({...editFormData, expiryTime: e.target.value})} required className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all" />
+                </div>
+                <div className="pt-4">
+                  <button type="submit" className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-green-500/30 active:scale-95 transition-all">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };
