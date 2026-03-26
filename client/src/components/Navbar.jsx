@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Utensils, Map, Home } from 'lucide-react';
+import { LogOut, Utensils, Map, Home, Truck } from 'lucide-react';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -31,6 +31,10 @@ const Navbar = () => {
                 Live Map
               </a>
             )}
+            <a onClick={() => navigate('/delivery')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">
+               <Truck size={18} className="mr-1" />
+               Deliveries
+            </a>
             <span className="text-sm font-medium text-gray-700 hidden sm:block border-l pl-6 border-gray-200">
               Welcome, {user?.name}
             </span>

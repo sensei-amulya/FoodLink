@@ -60,7 +60,7 @@ export const getNearbyFood = async (req, res) => {
     }
 
     const foodListing = await Food.find(query).populate('donorId', 'name rating');
-    
+
     // Sort logic modification (nearest first + expiry soonest first)
     // MongoDB $near already sorts by nearest. To combine, we can sort in memory.
     const sortedFood = foodListing.sort((a, b) => {
@@ -171,6 +171,154 @@ export const getDonorListings = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json(listings);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Accept delivery
+// @route   POST /api/food/accept-delivery/:id
+// @access  Private
+export const acceptDelivery = async (req, res) => {
+  try {
+    const { volunteerName, volunteerPhone } = req.body;
+    const food = await Food.findById(req.params.id);
+
+    if (!food) return res.status(404).json({ message: 'Food not found' });
+    if (food.deliveryStatus && food.deliveryStatus !== 'pending') {
+      return res.status(400).json({ message: 'Delivery already accepted by another volunteer' });
+    }
+
+    food.volunteerName = volunteerName;
+    food.volunteerPhone = volunteerPhone;
+    food.volunteerId = req.user._id;
+    food.deliveryStatus = 'accepted';
+
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getMyDeliveries = async (req, res) => {
+  try {
+    const deliveries = await Food.find({ volunteerId: req.user._id })
+      .populate('donorId', 'name address location')
+      .populate('receiverId', 'name address location')
+      .sort({ createdAt: -1 });
+    res.json(deliveries);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark picked up by donor
+// @route   PATCH /api/food/mark-picked/:id
+// @access  Private
+export const markPickedUp = async (req, res) => {
+  try {
+    const food = await Food.findById(req.params.id);
+    if (!food) return res.status(404).json({ message: 'Food not found' });
+    if (food.donorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the donor can mark this as picked up' });
+    }
+    if (food.deliveryStatus !== 'accepted') return res.status(400).json({ message: 'Delivery not accepted yet' });
+
+    food.pickupConfirmed = true;
+    food.deliveryStatus = 'picked';
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Mark delivered by volunteer
+// @route   PATCH /api/food/mark-delivered/:id
+// @access  Private
+export const markDelivered = async (req, res) => {
+  try {
+    const { deliveryProofImage } = req.body;
+    if (!deliveryProofImage) return res.status(400).json({ message: 'Delivery proof image is required' });
+    
+    const food = await Food.findById(req.params.id);
+    if (!food) return res.status(404).json({ message: 'Food not found' });
+    if (food.volunteerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the assigned volunteer can mark this as delivered' });
+    }
+    if (!food.pickupConfirmed) return res.status(400).json({ message: 'Cannot deliver before pickup is confirmed' });
+
+    food.deliveryProofImage = deliveryProofImage;
+    food.deliveryStatus = 'delivered';
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Confirm delivery by donor
+// @route   PATCH /api/food/confirm-delivery/:id
+// @access  Private
+export const confirmDelivery = async (req, res) => {
+  try {
+    const food = await Food.findById(req.params.id);
+    if (!food) return res.status(404).json({ message: 'Food not found' });
+    if (food.donorId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the donor can confirm final delivery' });
+    }
+    if (food.deliveryStatus !== 'delivered') return res.status(400).json({ message: 'Food has not been marked delivered yet' });
+
+    food.deliveryStatus = 'completed';
+    food.completedAt = Date.now();
+    const updatedFood = await food.save();
+    res.json(updatedFood);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get available deliveries for volunteers
+// @route   GET /api/food/available-deliveries
+// @access  Private (Volunteer)
+export const getAvailableDeliveries = async (req, res) => {
+  try {
+    // Only allow volunteers
+    if (req.user.role !== 'Volunteer' && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'Only volunteers can access this' });
+    }
+
+    const deliveries = await Food.find({
+      receiverId: { $exists: true, $ne: null }, // ensures food is claimed
+      $or: [
+        { deliveryStatus: 'pending' },
+        { deliveryStatus: { $exists: false } },
+        { deliveryStatus: null }
+      ]
+    })
+      .populate('donorId', 'name location')
+      .populate('receiverId', 'name location')
+      .sort({ createdAt: -1 });
+
+    console.log("Available deliveries:", deliveries.length);
+
+    res.json(deliveries);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllDeliveries = async (req, res) => {
+  try {
+    const deliveries = await Food.find({
+      deliveryStatus: { $ne: 'pending' }
+    })
+      .populate('donorId', 'name address location')
+      .populate('receiverId', 'name address location')
+      .populate('volunteerId', 'name');
+
+    res.json(deliveries);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
