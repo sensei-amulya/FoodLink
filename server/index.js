@@ -7,7 +7,7 @@ import { startCompostCron } from './cron.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000 ;
 
 import http from 'http';
 import { Server } from 'socket.io';
