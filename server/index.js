@@ -20,6 +20,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 import authRoutes from './routes/authRoutes.js';
 import foodRoutes from './routes/foodRoutes.js';
 import ratingRoutes from './routes/ratingRoutes.js';
+import aiRoutes from './routes/aiRoutes.js';
 
 app.use((req, res, next) => {
   req.io = io;
@@ -28,6 +29,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/food', foodRoutes);
 app.use('/api/ratings', ratingRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health route
 app.get('/api/health', (req, res) => {
