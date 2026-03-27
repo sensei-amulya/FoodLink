@@ -11,7 +11,9 @@ import {
   ArrowLeft,
   CheckCircle,
   XCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import api from '../api/axios';
 
@@ -38,6 +40,37 @@ const AddFood = () => {
 
   const [status, setStatus] = useState({ loading: false, type: '', message: '' });
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiDetected, setAiDetected] = useState(false);
+
+  const analyzeImage = async () => {
+    if (!imagePreview) return;
+    setAnalyzing(true);
+    setAiDetected(false);
+    try {
+      const { data } = await api.post('/ai/analyze-food', { imageBase64: imagePreview });
+      if (data.name) setFormData(prev => ({ ...prev, name: data.name }));
+      if (data.type && ['veg', 'non-veg'].includes(data.type)) {
+        setFormData(prev => ({ ...prev, type: data.type }));
+      }
+      
+      // Auto-fill expiry time based on predicted hours
+      if (data.expiryHours) {
+        const date = new Date();
+        date.setHours(date.getHours() + data.expiryHours);
+        // Format for datetime-local: YYYY-MM-DDTHH:mm
+        const formattedDate = date.toISOString().slice(0, 16);
+        setFormData(prev => ({ ...prev, expiryTime: formattedDate }));
+      }
+      
+      setAiDetected(true);
+    } catch (err) {
+      console.error('AI analysis failed:', err);
+      alert('AI analysis failed. Make sure GEMINI_API_KEY is set in server/.env');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const [searchResults, setSearchResults] = useState([]);
   const [searchingLocation, setSearchingLocation] = useState(false);
@@ -262,21 +295,45 @@ const AddFood = () => {
                       </div>
                     )}
                   </div>
+                  {/* AI Analyse Button - appears after image is uploaded */}
+                  {imagePreview && (
+                    <motion.button
+                      type="button"
+                      onClick={analyzeImage}
+                      disabled={analyzing}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl shadow-lg shadow-purple-500/25 active:scale-95 transition-all"
+                    >
+                      {analyzing ? (
+                        <><Loader2 size={18} className="animate-spin" /> Analysing image...</>
+                      ) : (
+                        <><Sparkles size={18} /> ✨ Auto-fill with AI</>
+                      )}
+                    </motion.button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Title */}
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Food Title / Name</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-700">Food Title / Name</label>
+                      {aiDetected && (
+                        <span className="flex items-center gap-1 text-xs font-bold text-purple-600 bg-purple-50 border border-purple-200 px-2 py-1 rounded-lg">
+                          <Sparkles size={12} /> AI Detected
+                        </span>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type="text"
                         name="name"
                         required
                         value={formData.name}
-                        onChange={handleInputChange}
+                        onChange={(e) => { handleInputChange(e); setAiDetected(false); }}
                         placeholder="e.g. 5 Boxes of Veg Pasta"
-                        className="w-full pl-4 pr-10 py-3 rounded-xl border border-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                        className={`w-full pl-4 pr-10 py-3 rounded-xl border focus:ring-2 outline-none transition-all ${aiDetected ? 'border-purple-300 focus:border-purple-500 focus:ring-purple-200' : 'border-gray-200 focus:border-green-500 focus:ring-green-200'}`}
                       />
                     </div>
                   </div>
