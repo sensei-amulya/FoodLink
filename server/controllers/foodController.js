@@ -209,6 +209,10 @@ export const updateFoodStatus = async (req, res) => {
       food.compostStatus = "available";
     } else {
       food.status = status;
+      // When donor accepts, seed deliveryStatus so volunteers can see it
+      if (status === 'Accepted') {
+        food.deliveryStatus = 'pending';
+      }
     }
 
     const updatedFood = await food.save();
@@ -388,35 +392,27 @@ export const confirmDelivery = async (req, res) => {
 // @access  Private (Volunteer)
 export const getAvailableDeliveries = async (req, res) => {
   try {
-    // Only allow volunteers
+    // Only allow volunteers or admins
     if (req.user.role !== "Volunteer" && req.user.role !== "Admin") {
       return res
         .status(403)
         .json({ message: "Only volunteers can access this" });
     }
 
-    // Disallow multiple active deliveries per volunteer
-    const activeCount = await Food.countDocuments({
-      volunteerId: req.user._id,
-      deliveryStatus: { $in: ["accepted", "picked"] },
-    });
-
-    if (activeCount > 0) {
-      return res.status(200).json([]); // keep response array-shaped for frontend DeliveryBoard.map
-    }
-
+    // Find all accepted food items that don't yet have a volunteer assigned
     const deliveries = await Food.find({
       status: "Accepted",
-      $and: [
+      // Must have a recipient (receiver or farmer)
+      $or: [
+        { receiverId: { $exists: true, $ne: null } },
         {
-          $or: [
-            { receiverId: { $exists: true, $ne: null } },
-            {
-              farmerId: { $exists: true, $ne: null },
-              compostStatus: "claimed",
-            },
-          ],
+          farmerId: { $exists: true, $ne: null },
+          compostStatus: "claimed",
         },
+      ],
+      // Must not yet be claimed by a volunteer
+      volunteerId: { $exists: false },
+      $and: [
         {
           $or: [
             { deliveryStatus: "pending" },
@@ -431,10 +427,11 @@ export const getAvailableDeliveries = async (req, res) => {
       .populate("farmerId", "name location")
       .sort({ createdAt: -1 });
 
-    console.log("Available deliveries:", deliveries.length);
+    console.log(`[DeliveryBoard] Volunteer ${req.user._id} queried available deliveries: ${deliveries.length} found`);
 
     res.json(deliveries);
   } catch (error) {
+    console.error("[getAvailableDeliveries] Error:", error.message);
     res.status(500).json({ message: error.message });
   }
 };
