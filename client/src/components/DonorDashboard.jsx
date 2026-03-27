@@ -29,7 +29,9 @@ const DonorDashboard = () => {
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       await api.put(`/food/${id}/status`, { status: newStatus });
-      setListings(listings.map(item => item._id === id ? { ...item, status: newStatus, receiverId: newStatus === 'Available' ? null : item.receiverId } : item));
+      // Re-fetch fresh data so populated receiverId/farmerId objects are always current
+      const { data } = await api.get('/food/donor');
+      setListings(data);
     } catch (error) {
       console.error('Failed to update status', error);
       alert('Failed to update status');
