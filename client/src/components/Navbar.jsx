@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Utensils, Map, Home, Truck } from 'lucide-react';
+import Logo from './common/Logo';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -17,8 +18,7 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Utensils className="h-8 w-8 text-purple-600" />
-            <span className="ml-2 text-xl font-bold tracking-tight text-gray-900">FoodLink</span>
+            <Logo width={40} height={40} showText={true} />
           </div>
           <div className="flex items-center space-x-6">
             <a onClick={() => navigate('/dashboard')} className="flex items-center cursor-pointer text-gray-600 hover:text-green-500 font-medium transition-colors">

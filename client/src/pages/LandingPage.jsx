@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import Logo from '../components/common/Logo';
 import { 
   Heart, 
   MapPin, 
@@ -38,11 +39,9 @@ const LandingPage = () => {
       <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <div className="flex items-center gap-2">
-              <div className="bg-green-500 p-2 rounded-xl text-white shadow-sm">
-                <Leaf size={24} />
-              </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent">
+            <div className="flex items-center gap-3">
+              <Logo width={44} height={44} showText={false} />
+              <span className="text-2xl font-bold bg-gradient-to-r from-green-500 to-green-600 bg-clip-text text-transparent tracking-tight">
                 FoodLink
               </span>
             </div>
@@ -248,9 +247,9 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
             <div className="col-span-2 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-6">
-                <Leaf className="text-green-500" size={28} />
-                <span className="text-2xl font-bold text-white">FoodLink</span>
+              <div className="flex items-center gap-3 mb-6">
+                <Logo width={48} height={48} showText={false} />
+                <span className="text-2xl font-bold text-white tracking-tight">FoodLink</span>
               </div>
               <p className="text-sm leading-relaxed mb-6 max-w-sm">Connecting surplus food to those who need it. Making communities stronger and more sustainable, one meal at a time.</p>
               <div className="flex gap-4">
