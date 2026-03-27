@@ -116,8 +116,8 @@ Keep answers concise, helpful, and friendly. If asked something outside FoodLink
         parts: [{ text: msg.content }],
       }))
       .filter((_, idx, arr) => {
-        // Drop messages from the start until we hit the first 'user' message
         const firstUserIdx = arr.findIndex((m) => m.role === 'user');
+        if (firstUserIdx === -1) return false;
         return idx >= firstUserIdx;
       });
 
