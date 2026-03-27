@@ -104,23 +104,6 @@ const Register = () => {
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-md border border-red-100">{error}</div>}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                required
-                className="mt-1 block w-full rounded-md border-gray-300 border p-2.5 shadow-sm focus:border-purple-500 focus:ring-purple-500 outline-none transition-all text-sm"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-        
         <AnimatePresence mode="wait">
           {error && (
             <motion.div 
