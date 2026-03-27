@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Utensils, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, HeartHandshake, Package, Truck } from 'lucide-react';
+import { Utensils, Mail, Lock, User, AlertCircle, Eye, EyeOff, Loader2, HeartHandshake, Package, Truck, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
+import Logo from '../components/common/Logo';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -75,7 +76,15 @@ const Register = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50/50 py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50/50 py-12 px-4 sm:px-6 lg:px-8 font-sans relative overflow-hidden flex-col">
+      {/* Back to Home Button */}
+      <div className="absolute top-6 left-6 sm:top-8 sm:left-8 z-20">
+        <Link to="/" className="inline-flex items-center text-sm font-bold text-gray-500 hover:text-green-600 transition-colors group bg-white/50 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-200/50 shadow-sm hover:shadow hover:bg-white">
+          <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          Back to Home
+        </Link>
+      </div>
+
       {/* Subtle Background Elements */}
       <div className="absolute top-0 right-0 w-full h-[30vh] bg-gradient-to-b from-green-50/80 to-transparent -z-10" />
       <div className="absolute top-[-10%] left-[-5%] w-96 h-96 bg-green-100/40 rounded-full blur-3xl -z-10" />
@@ -92,9 +101,8 @@ const Register = () => {
             initial={{ scale: 0.8, rotate: 10 }}
             animate={{ scale: 1, rotate: -3 }}
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-            className="h-14 w-14 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mb-5 shadow-sm border border-green-100/50"
           >
-            <Utensils size={28} strokeWidth={2.5} />
+            <Logo width={64} height={64} className="mb-5" />
           </motion.div>
           <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 mb-2">
             Create an Account
