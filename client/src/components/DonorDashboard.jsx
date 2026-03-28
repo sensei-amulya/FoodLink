@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Package, Plus, MapPin, Clock, Info, CheckCircle, Mail, User, Users, Edit, Trash2, XCircle, Leaf } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
+import usePolling from '../hooks/usePolling';
 
 const DonorDashboard = () => {
   const [listings, setListings] = useState([]);
@@ -11,8 +12,9 @@ const DonorDashboard = () => {
   const [editingFood, setEditingFood] = useState(null);
   const [editFormData, setEditFormData] = useState({ name: '', quantity: 1, type: 'veg', expiryTime: '' });
 
+  // ─── Initial load (shows spinner) ───────────────────────────────────────
   useEffect(() => {
-    const fetchDonorListings = async () => {
+    const initialFetch = async () => {
       try {
         const { data } = await api.get('/food/donor');
         setListings(data);
@@ -22,9 +24,18 @@ const DonorDashboard = () => {
         setLoading(false);
       }
     };
-
-    fetchDonorListings();
+    initialFetch();
   }, []);
+
+  // ─── Silent background refresh (no loading flash) ────────────────────────
+  // useCallback ensures the function reference is stable across renders
+  const silentFetch = useCallback(async () => {
+    const { data } = await api.get('/food/donor');
+    setListings(data);
+  }, []);
+
+  // 500 ms polling — starts after initial mount, cleans up on unmount
+  const { isRefreshing } = usePolling(silentFetch, 500);
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
@@ -93,6 +104,11 @@ const DonorDashboard = () => {
           <h2 className="text-3xl font-extrabold text-gray-900 flex items-center mb-2">
             <Package className="mr-4 text-green-500 w-8 h-8" />
             Your Impact
+            {/* Live data indicator — pulses while a background refresh is in-flight */}
+            <span className="ml-3 flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
+              <span className={`w-1.5 h-1.5 rounded-full bg-green-500 ${isRefreshing ? 'animate-ping' : 'animate-pulse'}`} />
+              Live
+            </span>
           </h2>
           <p className="text-gray-500 font-medium text-lg">Manage your donations and oversee requests from the community.</p>
         </div>
@@ -170,7 +186,7 @@ const DonorDashboard = () => {
                             </button>
                             <button onClick={async () => {
                               if (window.confirm('Are you sure you want to mark this as expired and send to compost?')) {
-                                try { await api.patch(`/food/mark-expired/${item._id}`); window.location.reload(); } catch (e) { alert('Failed to expire'); }
+                                try { await api.patch(`/food/mark-expired/${item._id}`); await silentFetch(); } catch (e) { alert('Failed to expire'); }
                               }
                             }} className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Expire for Compost">
                               <Leaf size={18} />
@@ -253,7 +269,7 @@ const DonorDashboard = () => {
                           )}
                           {(item.status === 'Accepted' || item.status === 'Expired') && item.deliveryStatus === 'accepted' && (
                             <div className="pt-4 border-t border-gray-100">
-                              <button onClick={async () => { await api.patch(`/food/mark-picked/${item._id}`); window.location.reload(); }} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold transition-all shadow-md shadow-blue-500/20 flex justify-center items-center active:scale-95">
+                              <button onClick={async () => { await api.patch(`/food/mark-picked/${item._id}`); await silentFetch(); }} className="w-full bg-blue-500 hover:bg-blue-600 text-white py-3.5 rounded-xl font-bold transition-all shadow-md shadow-blue-500/20 flex justify-center items-center active:scale-95">
                                 Mark as Picked Up <CheckCircle size={18} className="ml-2" />
                               </button>
                             </div>
@@ -269,7 +285,7 @@ const DonorDashboard = () => {
                                 <h6 className="text-xs font-extrabold text-green-800 uppercase mb-3 flex items-center"><CheckCircle size={16} className="mr-2"/> Delivery Proof Uploaded</h6>
                                 {item.deliveryProofImage && <img src={item.deliveryProofImage} alt="Proof" className="w-full max-h-[160px] object-cover rounded-lg border border-green-300 shadow-sm" />}
                               </div>
-                              <button onClick={async () => { await api.patch(`/food/confirm-delivery/${item._id}`); window.location.reload(); }} className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-extrabold transition-all shadow-lg shadow-green-500/30 flex justify-center items-center active:scale-95">
+                              <button onClick={async () => { await api.patch(`/food/confirm-delivery/${item._id}`); await silentFetch(); }} className="w-full bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-extrabold transition-all shadow-lg shadow-green-500/30 flex justify-center items-center active:scale-95">
                                 Confirm Final Delivery <CheckCircle size={20} className="ml-2" />
                               </button>
                             </div>
