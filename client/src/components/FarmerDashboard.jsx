@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MapPin, Clock, Users, ArrowRight, Bell, CheckCircle, Info, Sprout, Leaf, Package } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import MapComponent from './MapComponent';
+import usePolling from '../hooks/usePolling';
+
+// Server URL — production uses Render backend, dev uses localhost
+const SOCKET_URL = import.meta.env.PROD
+  ? 'https://foodlink-1-cprj.onrender.com'
+  : 'http://localhost:5000';
 
 const FarmerDashboard = () => {
   const [foods, setFoods] = useState([]);
@@ -18,17 +24,19 @@ const FarmerDashboard = () => {
 
   const [claimingFood, setClaimingFood] = useState(null);
 
-  const fetchMyClaims = async () => {
+  // ─── Fetchers ────────────────────────────────────────────────────────────
+  const fetchMyClaims = useCallback(async () => {
     try {
       const { data } = await api.get('/food/my-compost');
       setMyClaims(data);
     } catch (err) {
       console.error('Failed to fetch claims', err);
     }
-  };
+  }, []);
 
+  // Setup Socket.io — uses dynamic URL for prod vs dev
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(SOCKET_URL);
 
     socket.on('food_alert', (foodData) => {
       if (foodData.isCompostable) {
@@ -46,7 +54,7 @@ const FarmerDashboard = () => {
     return () => socket.disconnect();
   }, [userLocation]);
 
-  const fetchNearbyFood = async (lat, lng) => {
+  const fetchNearbyFood = useCallback(async (lat, lng) => {
     try {
       // Large distance to guarantee results in testing
       const { data } = await api.get(`/food/compost-available?lat=${lat}&lng=${lng}&distance=500000`);
@@ -57,7 +65,7 @@ const FarmerDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMyClaims();
@@ -78,7 +86,16 @@ const FarmerDashboard = () => {
       setError('Geolocation is not supported by your browser.');
       setLoading(false);
     }
-  }, []);
+  }, [fetchMyClaims, fetchNearbyFood]);
+
+  // ─── 500 ms polling ─────────────────────────────────────────────
+  const silentFetchNearby = useCallback(async () => {
+    if (!userLocation) return;
+    await fetchNearbyFood(userLocation.lat, userLocation.lng);
+  }, [userLocation, fetchNearbyFood]);
+
+  const { isRefreshing } = usePolling(fetchMyClaims, 500);
+  usePolling(silentFetchNearby, 500, !!userLocation);
 
   const confirmClaim = async () => {
     if (!claimingFood) return;
@@ -125,9 +142,14 @@ const FarmerDashboard = () => {
         <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 relative z-0 transition-transform duration-300 hover:-translate-y-1">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
-              <MapPin className="mr-3 text-green-500 w-7 h-7" />
-              Live Compost Map
-            </h2>
+            <MapPin className="mr-3 text-green-500 w-7 h-7" />
+            Live Compost Map
+            {/* Live refresh indicator */}
+            <span className="ml-3 flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
+              <span className={`w-1.5 h-1.5 rounded-full bg-green-500 ${isRefreshing ? 'animate-ping' : 'animate-pulse'}`} />
+              Live
+            </span>
+          </h2>
           </div>
           <div className="rounded-2xl overflow-hidden border border-gray-100">
             <MapComponent foods={foods} userLocation={userLocation} onClaim={(id) => {

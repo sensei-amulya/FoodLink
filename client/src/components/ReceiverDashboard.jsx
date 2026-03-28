@@ -1,10 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MapPin, Clock, Users, ArrowRight, Bell, CheckCircle, Info } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { io } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
 import MapComponent from './MapComponent';
+import usePolling from '../hooks/usePolling';
+
+// Server URL — production uses Render backend, dev uses localhost
+const SOCKET_URL = import.meta.env.PROD
+  ? 'https://foodlink-1-cprj.onrender.com'
+  : 'http://localhost:5000';
 
 const ReceiverDashboard = () => {
   const [foods, setFoods] = useState([]);
@@ -19,18 +25,19 @@ const ReceiverDashboard = () => {
   // Confirmation Modal State
   const [claimingFood, setClaimingFood] = useState(null);
 
-  const fetchMyClaims = async () => {
+  // ─── Initial & silent fetchers ─────────────────────────────────────────
+  const fetchMyClaims = useCallback(async () => {
     try {
       const { data } = await api.get('/food/receiver');
       setMyClaims(data);
     } catch (err) {
       console.error('Failed to fetch claims', err);
     }
-  };
+  }, []);
 
-  // Setup Socket.io
+  // Setup Socket.io — uses dynamic URL for prod vs dev
   useEffect(() => {
-    const socket = io('http://localhost:5000');
+    const socket = io(SOCKET_URL);
 
     socket.on('food_alert', (foodData) => {
       setNotifications(prev => [
@@ -46,9 +53,9 @@ const ReceiverDashboard = () => {
     return () => socket.disconnect();
   }, [userLocation]);
 
-  const fetchNearbyFood = async (lat, lng) => {
+  const fetchNearbyFood = useCallback(async (lat, lng) => {
     try {
-      const { data } = await api.get(`/food/nearby?lat=${lat}&lng=${lng}&distance=500000`); // increased to 500km to ensure visibility during testing
+      const { data } = await api.get(`/food/nearby?lat=${lat}&lng=${lng}&distance=500000`);
       setFoods(data);
       setError(null);
     } catch (err) {
@@ -56,7 +63,7 @@ const ReceiverDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchMyClaims();
@@ -77,7 +84,17 @@ const ReceiverDashboard = () => {
       setError('Geolocation is not supported by your browser.');
       setLoading(false);
     }
-  }, []);
+  }, [fetchMyClaims, fetchNearbyFood]);
+
+  // ─── 500 ms polling ───────────────────────────────────────────────────────
+  // Poll myClaims always; poll nearby food only once we have the user location
+  const silentFetchNearby = useCallback(async () => {
+    if (!userLocation) return;
+    await fetchNearbyFood(userLocation.lat, userLocation.lng);
+  }, [userLocation, fetchNearbyFood]);
+
+  const { isRefreshing } = usePolling(fetchMyClaims, 500);
+  usePolling(silentFetchNearby, 500, !!userLocation);
 
   const confirmClaim = async () => {
     if (!claimingFood) return;
@@ -118,6 +135,11 @@ const ReceiverDashboard = () => {
             <h2 className="text-2xl font-extrabold text-gray-900 flex items-center">
               <MapPin className="mr-3 text-green-500 w-7 h-7" />
               Live Discovery Map
+              {/* Live refresh indicator */}
+              <span className="ml-3 flex items-center gap-1.5 text-xs font-semibold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100">
+                <span className={`w-1.5 h-1.5 rounded-full bg-green-500 ${isRefreshing ? 'animate-ping' : 'animate-pulse'}`} />
+                Live
+              </span>
             </h2>
           </div>
           <div className="rounded-2xl overflow-hidden border border-gray-100">
