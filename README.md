@@ -57,7 +57,8 @@ Create a file named `.env` inside the `client/` directory: `client/.env`
 Add the following variables:
 
 ```env
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL:=https://foodlink-1-cprj.onrender.com
+
 ```
 
 ### 3. Installation & Running
